@@ -64,10 +64,11 @@ def clean_tweet(tweet):
     tweet4 = re.sub("http[^\\s]+",'', tweet3)
     tweet5 = re.sub(r"\[", '', tweet4)
     tweet6 = re.sub(r"\]", '', tweet5)
-    tweet7 = re.sub(r"rt", '', tweet6)
+    tweet7 = re.sub(r"'rt", '', tweet6)
+    tweet8 = re.sub(r"'", '', tweet7)
     # replace non-alphanumeric with space
     # temp1_tweet = re.sub('[^a-zA-Z]', '  ', tweet)
-    temp_tweet = re.sub('\d', '  ', tweet6)
+    temp_tweet = re.sub('\d', '  ', tweet8)
 
     for i in range(len(codelist)):
         stopstring = ' ' + codelist[i] + '  '
@@ -153,8 +154,8 @@ def plotMostFrequentWords(words, plot_file_name, plot_title):
     return freq_sorted_list
 
 #Define directory and file with all tweets to be used
-dir=('C:\\Users\\ecoker\\Documents\\Educational\\capstone\\')
-twitter_df=pd.read_csv(dir + 'chicagobears120614.csv')
+dir=('C:\\Users\\ecoker\\Documents\\Projects\\Twitter\\Python-NLTK-and-Twitter\\')
+twitter_df=pd.read_csv(dir + 'allbears.csv')
 #clean up all tweets
 cleaned_tweets = list()
 review_tweets = twitter_df.status_text  
@@ -172,11 +173,12 @@ for token in sorted(set(tokens))[:30]:
     print token + ' [' + str(tokens.count(token)) + ']'
 
 bigrams = nltk.bigrams(tokens)
-print 'bigrams: ', bigrams
+bigramslist = [" ".join(pair) for pair in nltk.bigrams(tokens)]
+print 'bigrams: ', bigramslist
 # tokenstr = ' '.join(tokens)
-fdist=nltk.FreqDist(str(tokens))
-word_features=fdist.keys()
-print 'word_features: ', word_features
+# fdist=nltk.FreqDist(tokens)
+# word_features=fdist.keys()
+# print 'word_features: ', word_features
 ###################
 # Use Python collection for counting frequency OF USERS
 user_count = Counter()
@@ -271,19 +273,13 @@ positive_list=PlaintextCorpusReader(dir, 'unigrams-pos.txt')
 
 negative_list=PlaintextCorpusReader(dir, 'unigrams-neg.txt')   
 
-positives=word_tokenize(str(positive_list))
-negatives=word_tokenize(str(negative_list))
-
-# positive_words=negative_list.words()
-# negative_words=negative_list.words()
-
-
+positive_words = positive_list.words()
+negative_words = negative_list.words()
 # define bag-of-words dictionaries 
 def bag_of_words(words, value):
-    return dict([(words, value)])
-   
-positive_scoring = bag_of_words(str(positives), 1)
-negative_scoring = bag_of_words(str(negatives), -1)
+    return dict([(word, value) for word in words])
+positive_scoring = bag_of_words(positive_words, 1)
+negative_scoring = bag_of_words(negative_words, -1)
 scoring_dictionary = dict(positive_scoring.items() + negative_scoring.items())
 
 for k, v in scoring_dictionary.items():
@@ -306,14 +302,14 @@ print(round(sum(score) / (len(tokens)), 3))
 
 # identify the most frequent positive words
 
-positive_words_in = nltk.FreqDist(w for w in positives)
+positive_words_in = nltk.FreqDist(w for w in positive_words)
 word_features = positive_words_in.keys()
 
 def find_words_p(corpus):
     corpus_words=set(corpus)
     positive_present = {}
-    for word in word_features:
-        positive_present[word] = (word in corpus_words)
+    for word in tokens:
+        positive_present[word] = (word in tokens)
     return positive_present
 
 selected_positive_words = []
@@ -321,14 +317,14 @@ selected_positive_words=(find_words_p(tokens))
 
 # # identify the most frequent negative words
 
-negative_words_in = nltk.FreqDist(w for w in negatives)
+negative_words_in = nltk.FreqDist(w for w in negative_words)
 word_features = negative_words_in.keys()
 
 def find_words_n(corpus):
     corpus_words=set(corpus)
     negative_present = {}
-    for word in word_features:
-        negative_present[word] = (word in corpus_words)
+    for word in tokens:
+        negative_present[word] = (word in tokens)
     return negative_present
 
 selected_negative_words = []
