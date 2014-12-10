@@ -1,5 +1,6 @@
 
 import os  # operating system commands
+
 import re  # regular expressions
 import nltk  # draw on the Python natural language toolkit
 import pandas as pd  # DataFrame structure and operations
@@ -24,8 +25,11 @@ import pdb
 import pygal
 from collections import Counter
 from prettytable import PrettyTable
+from prettytable import from_csv
 from BeautifulSoup import BeautifulSoup as bs
-
+from nltk.tokenize import word_tokenize
+import nltk
+from nltk import *
 
 class MyObj(object):
     def __init__(self, num_loops):
@@ -47,29 +51,30 @@ def clean_tweet(tweet):
     
     # start with the initial list and add the additional words to it.
     stoplist = nltk.corpus.stopwords.words('english') + more_stop_words
-    #stoplist = nltk.corpus.stopwords.words('english')
 
     # define list of codes to be dropped from document
     # carriage-returns, line-feeds, tabs
     codelist = ['\r', '\n', '\t']
 
     # insert a space at the beginning and end of the tweet
-    tweet = ' ' + tweet + ' '
+    # tweet = ' ' + tweet + ' '
     tweet1=re.sub(r'[^\x00-\x7F]+',"", tweet)
     tweet2=re.sub(r'"', '', tweet1)
-    tweet3 = re.sub(",", "", tweet2)
-    tweet4 = re.sub("http[^\\s]+","", tweet3)
-    
+    tweet3 = re.sub(",", '', tweet2)
+    tweet4 = re.sub("http[^\\s]+",'', tweet3)
+    tweet5 = re.sub(r"\[", '', tweet4)
+    tweet6 = re.sub(r"\]", '', tweet5)
+    tweet7 = re.sub(r"rt", '', tweet6)
     # replace non-alphanumeric with space
     # temp1_tweet = re.sub('[^a-zA-Z]', '  ', tweet)
-    # temp_tweet = re.sub('\d', '  ', temp1_tweet)
+    temp_tweet = re.sub('\d', '  ', tweet6)
 
     for i in range(len(codelist)):
         stopstring = ' ' + codelist[i] + '  '
-        temp_tweet = re.sub(stopstring, '  ', tweet4) #change to temp_tweet 
+        temp_tweet1 = re.sub(stopstring, '  ', temp_tweet) 
        
     # convert uppercase to lowercase
-    temp_tweet = temp_tweet.lower()    
+    temp_tweet = temp_tweet1.lower()    
 
     # replace single-character words with space
     temp_tweet = re.sub('\s.\s', ' ', temp_tweet)
@@ -157,39 +162,21 @@ review_tweets = twitter_df.status_text
 for line in review_tweets:
         cleaned_tweet = clean_tweet(line)    
         cleaned_tweets.append(cleaned_tweet)
+print 'cleaned_tweets', type(cleaned_tweets)
 
-aggregate_corpus = nltk.Text(cleaned_tweets)
+tokens=[word_tokenize(tweet) for tweet in cleaned_tweets]
+print 'token len', len(tokens)
+print tokens[:10]
+tokens = [word for sent in nltk.sent_tokenize(str(cleaned_tweets)) for word in nltk.word_tokenize(sent)]
+for token in sorted(set(tokens))[:30]:
+    print token + ' [' + str(tokens.count(token)) + ']'
 
-
-#look at freq of 2-word collocations
-bigram_measures = nltk.collocations.BigramAssocMeasures()
-finder=nltk.collocations.BigramCollocationFinder.from_words(cleaned_tweets)
-bigramslist=[]
-bigramslisttop=[]
-bigramslist = finder.ngram_fd.keys()
-bigramslisttop = finder.nbest(bigram_measures.pmi,10)
-#bigramslisttop = sorted(finder.ngram_fd.items(), key=lambda t: (-t[1], t[0]))[:15]
-aggregate_corpus_bi = nltk.Text(bigramslist)
-# print 'bigrams top created' 
-# for word in bigramslisttop:
-#     pt = PrettyTable(field_names =[word, 'Count'])
-#     c = Counter(word)
-#     [ pt.add_row(kv) for kv in c.most_common()[:10] ]
-#     pt.align[word], pt.align['Count'] = 'l', 'r'
-#     # print pt
-
-#     #look at freq of 3-word collocations
-# trigram_measures = nltk.collocations.TrigramAssocMeasures()
-# finder=nltk.collocations.TrigramCollocationFinder.from_words(cleaned_tweets)
-# trigramslist=[]
-# trigramslisttop=[]
-# trigramslist = finder.ngram_fd.keys()
-# trigramslisttop = finder.nbest(trigram_measures.pmi,10)
-# # trigramslisttop = sorted(finder.ngram_fd.items(), key=lambda t: (-t[1], t[0]))[:15]
-# aggregate_corpus_tri = nltk.Text(trigramslist)
-# print 'trigrams top created' 
-
-
+bigrams = nltk.bigrams(tokens)
+print 'bigrams: ', bigrams
+# tokenstr = ' '.join(tokens)
+fdist=nltk.FreqDist(str(tokens))
+word_features=fdist.keys()
+print 'word_features: ', word_features
 ###################
 # Use Python collection for counting frequency OF USERS
 user_count = Counter()
@@ -221,7 +208,11 @@ for i,j in count.iteritems():
 
 df1 = pd.DataFrame(frdf, index=None, columns=["Count", "Tweet"])
 df1.sort(columns="Count", inplace=True, ascending=False)
-
+df1.to_csv(dir + 'TopTweets.csv')
+fp=open(dir + 'TopTweets.csv', "r")
+pt=from_csv(fp)
+fp.close()
+print "top tweets are: ", pt
 # for i,j,k in df1.itertuples():
 #     print j,"\t", k
 
@@ -275,110 +266,100 @@ chart.config.title="Twitter Source for PyData-SV Users"
 chart.render_to_file('pie_chart_twitter_usersource.svg')
 
 
-### Time for Sentiment scoring
-# read in positive and negative word lists from Hu and Liu (2004). Basis for scoring without training
-with open('Hu_Liu_positive_word_list.csv','rt') as f:
-    positive_word = f.read().split() 
-with open('Hu_Liu_negative_word_list.csv','rt') as f:
-    negative_word = f.read().split()  
 
-# switch to new Twitter-focused lexicons
-with open('C:\\Users\\ecoker\\Documents\\Projects\\SocialMining\\unigrams-pos.csv', 'rt') as f:
-    positive_lex=f.read().split()
-with open('C:\\Users\\ecoker\\Documents\\Projects\\SocialMining\\unigrams-neg.csv', 'rt') as f:
-    negative_lex=f.read().split()
+positive_list=PlaintextCorpusReader(dir, 'unigrams-pos.txt')   
 
-positive_word_list=positive_word + positive_lex
-negative_word_list=negative_word + negative_lex
+negative_list=PlaintextCorpusReader(dir, 'unigrams-neg.txt')   
 
-positive_list = []
-for line in positive_word_list:
-        cleaned_word_p = clean_tweet(line)    
-        positive_list.append(cleaned_word_p)
-positive_lists=set(positive_list)
-negative_list = []
-for line in negative_word_list:
-        cleaned_word_n = clean_tweet(line)    
-        negative_list.append(cleaned_word_n)
-negative_lists=set(negative_list)
+positives=word_tokenize(str(positive_list))
+negatives=word_tokenize(str(negative_list))
+
+# positive_words=negative_list.words()
+# negative_words=negative_list.words()
+
+
+# define bag-of-words dictionaries 
+def bag_of_words(words, value):
+    return dict([(words, value)])
    
+positive_scoring = bag_of_words(str(positives), 1)
+negative_scoring = bag_of_words(str(negatives), -1)
+scoring_dictionary = dict(positive_scoring.items() + negative_scoring.items())
 
-def score_positive(text):    
-    positive = [w for w in text.split() if w in positive_lists]
-    total = [w for w in text.split()]
-    return 100 * len(positive)/len(total)
+for k, v in scoring_dictionary.items():
+    print k, v 
+scoring_dictionary=set(scoring_dictionary)
 
-def score_negative(text):    
-    negative = [w for w in text.split() if w in negative_lists]
-    total = [w for w in text.split()]
-    return 100 * len(negative)/len(total)
+# scores are -1 if in negative word list, +1 if in positive word list
+# and zero otherwise. We use a dictionary for scoring.
 
+score = [0] * len(tokens)
 
-
-#take a look at ngrams, the next type to be used
-# convert the sorted list into a data frame so that we can plot
-bi_df =  pd.DataFrame(bigramslisttop, columns=['Word', 'Count'])
-bigram_chart = bi_df.plot(kind='bar', x='Word', y='Count', title = 'bigrams')
-bigram_chart.set_ylabel('Word Count')
-bigram_chart.set_xlabel('')
-bigram_chart.legend().set_visible(False)
-plt.savefig(('bigrams'), bbox_inches = 'tight', edgecolor='b', orientation='landscape', papertype=None, format=None, transparent=True)  # plot to file
-
-trip_df =  pd.DataFrame(trigramslisttop, columns=['Word', 'Count'])
-trigram_chart = trip_df.plot(kind='bar', x='Word', y='Count',title = 'trigrams')
-trigram_chart.set_ylabel('Word Count')
-trigram_chart.set_xlabel('')
-trigram_chart.legend().set_visible(False)
-plt.savefig(('trigrams'), bbox_inches = 'tight', edgecolor='b', orientation='landscape', papertype=None, format=None, transparent=True)  # plot to file
-
-def compute_scores(tweets):
-    # use the complete word lists for POSITIVE and NEGATIVE measures
-    # to score all documents in a corpus or list of documents
-    positive = []
-    negative = []
-    for word in tweets:
-        positive.append(score_positive(word)) 
-        negative.append(score_negative(word)) 
-    return(positive, negative)
+for word in tokens:
+    if word in scoring_dictionary:
+        score[word] = scoring_dictionary(word)
 
 
-positive, negative = compute_scores(aggregate_corpus) # or trigramslist or bigramslist or cleaned_tweets
+# report the norm sentiment score for the words in the corpus
+print('Corpus Average Sentiment Score:')
+print(round(sum(score) / (len(tokens)), 3))
 
-data = {'positive':positive, 'negative':negative, 'cleaned_tweets':cleaned_tweets}
-dataframe=pd.DataFrame(data)
+# identify the most frequent positive words
 
-dataframe['sentiment']=(dataframe['positive']/100)-(dataframe['negative']/100)
+positive_words_in = nltk.FreqDist(w for w in positives)
+word_features = positive_words_in.keys()
 
-mean = dataframe.sentiment.mean
-print 'mean sentiment is ', mean
+def find_words_p(corpus):
+    corpus_words=set(corpus)
+    positive_present = {}
+    for word in word_features:
+        positive_present[word] = (word in corpus_words)
+    return positive_present
 
-columns=['positive', 'negative']
-dataframe=dataframe.drop(columns, axis=1)
+selected_positive_words = []
+selected_positive_words=(find_words_p(tokens))
 
-new_twitter_df=pd.concat([dataframe, twitter_df], axis=1)
+# # identify the most frequent negative words
+
+negative_words_in = nltk.FreqDist(w for w in negatives)
+word_features = negative_words_in.keys()
+
+def find_words_n(corpus):
+    corpus_words=set(corpus)
+    negative_present = {}
+    for word in word_features:
+        negative_present[word] = (word in corpus_words)
+    return negative_present
+
+selected_negative_words = []
+selected_negative_words=(find_words_n(tokens))
+
 
 # Plot the freq dist for the full corpus    
 # plot a bar chart for top words in terms of counts
+# total_words = aggregate_corpus.words()
 print('Get the top 15 words: ')
 full_plot_file_name = dir + 'full_review_word_count.png'
 plot_title = 'full_review_word_count'
-full_sort = plotMostFrequentWords(aggregate_corpus, full_plot_file_name, plot_title)
+full_sort = plotMostFrequentWords(tokens, full_plot_file_name, plot_title)
 
 # Plot the freq dist for the positive tweet words    
 # plot a bar chart for top words in terms of counts
-positive_corpus = nltk.Text(positive)
+positive_in = nltk.Text(selected_positive_words)
+# pos_in_corp = positive_in.words()
 print('Get the top 15 positive words: ')
 pos_plot_file_name = dir + 'pos_review_word_count.png'
 plot_title =  'pos_review_word_count'
-positive_sort = plotMostFrequentWords(positive_corpus, pos_plot_file_name, plot_title)
+positive_sort = plotMostFrequentWords(positive_in, pos_plot_file_name, plot_title)
 
 # Plot the freq dist for the negative tweet words   
 # plot a bar chart for top words in terms of counts
-negative_corpus = nltk.Text(negative)
+negative_in = nltk.Text(selected_negative_words)
+# neg_in_corp = negative_in.words()
 print('Get the top 15 negative words: ')
 neg_plot_file_name = dir + 'neg_review_word_count.png'
 plot_title = '_neg_review_word_count'
-negative_sort = plotMostFrequentWords(negative_corpus, neg_plot_file_name, plot_title)
+negative_sort = plotMostFrequentWords(negative_in, neg_plot_file_name, plot_title)
 
 
 #Finally do the modeling using classification models and predict sentiment
@@ -431,5 +412,4 @@ negative_sort = plotMostFrequentWords(negative_corpus, neg_plot_file_name, plot_
 
 # end_df['negative_probability'] = lr_clf.predict_proba(vector_data)[:,0]
 
-# end_df.to_csv(dir+'final_data120214.csv')
-
+# end_df.to_csv(dir+'final_data120214.csv')   
