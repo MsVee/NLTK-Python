@@ -4,7 +4,7 @@ import nltk
 import re  # regular expressions
 import pandas as pd  # DataFrame structure and operations
 import numpy as np  # arrays and numerical processing
-import matplotlib as plt  # 2D plotting
+import matplotlib.pyplot as plt  # 2D plotting
 import statsmodels.api as sm  # logistic regression
 import statsmodels.formula.api as smf  # R-like model specification
 import patsy  # translate model specification into design matrices
@@ -58,14 +58,16 @@ def clean_tweet(tweet):
 
     # insert a space at the beginning and end of the tweet
     # tweet = ' ' + tweet + ' '
-    tweet =re.sub(r'[^\x00-\x7F]+',"", tweet)
-    tweet =re.sub(r'"', '', tweet)
+    tweet = re.sub(r'[^\x00-\x7F]+',"", tweet)
+    tweet = re.sub(r'"', '', tweet)
     tweet = re.sub(",", '', tweet)
     tweet = re.sub("http[^\\s]+",'', tweet)
     tweet = re.sub(r"\[", '', tweet)
     tweet = re.sub(r"\]", '', tweet)
     tweet = re.sub(r"'rt", '', tweet)
     tweet = re.sub(r"'", '', tweet)
+    tweet = re.sub("'", '', tweet)
+    tweet = re.sub("'", '', tweet)
     # replace non-alphanumeric with space
     temp_tweet = re.sub('[^a-zA-Z]', '  ', tweet)
     temp_tweet = re.sub('\d', '  ', temp_tweet)
@@ -156,7 +158,7 @@ def plotMostFrequentWords(words, plot_file_name, plot_title):
 #Define directory and file with all tweets to be used
 
 dir=('C:\\Users\\ecoker\\Documents\\Projects\\Twitter\\Python-NLTK-and-Twitter\\')
-twitter_df=pd.read_csv(dir + 'allbears_sample.csv')
+twitter_df=pd.read_csv(dir + 'allbears.csv')
 print 'dataframe: ', twitter_df.head()
 #clean up all tweets
 cleaned_tweets = list()
@@ -322,7 +324,8 @@ scores.to_csv(dir + 'scoringdict.csv')
 
 print('Corpus Average Sentiment Score:')
 print(round(sum(score) / (len(corp)), 3))
-
+print 'sum score', sum(score)
+print 'len corpus', len(corp)
 # identify the most frequent positive words
 
 positive_words_in = nltk.FreqDist(w for w in positive_words)
@@ -356,7 +359,8 @@ for i,j in count.iteritems():
 
 posf= pd.DataFrame(pos, index=None, columns=['Count', 'Word'])
 posf.sort(columns="Count", inplace=True, ascending=False)
-pos_chart = posf[:15].plot(kind='bar', x='Count', y='Word', title = 'Top Negative Words')
+print posf.head()
+pos_chart = posf[:15].plot(kind='bar', x='Word', y='Count', title = 'Top Positive Words')
 pos_chart.set_ylabel('Word Count')
 pos_chart.set_xlabel('')
 pos_chart.legend().set_visible(False)
@@ -369,7 +373,7 @@ for i,j in count2.iteritems():
 
 negf= pd.DataFrame(neg, index=None, columns=['Count', 'Word'])
 negf.sort(columns="Count", inplace=True, ascending=False)
-neg_chart = negf[:15].plot(kind='bar', x='Count', y='Word', title = 'Top Negative Words')
+neg_chart = negf[:15].plot(kind='bar', x='Word', y='Count', title = 'Top Negative Words')
 neg_chart.set_ylabel('Word Count')
 neg_chart.set_xlabel('')
 neg_chart.legend().set_visible(False)
