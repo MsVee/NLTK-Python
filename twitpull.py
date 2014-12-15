@@ -1,7 +1,7 @@
 from twitter import *
 import pandas as pd
 from datetime import datetime as dt
-
+import time
 import glob
 import os
 import sys
@@ -18,7 +18,7 @@ def oauth_login():
     
     CONSUMER_KEY = ''
     CONSUMER_SECRET = ''
-    OAUTH_TOKEN = ''
+    OAUTH_TOKEN = '-'
     OAUTH_TOKEN_SECRET = ''
     
     auth = twitter.oauth.OAuth(OAUTH_TOKEN, OAUTH_TOKEN_SECRET, CONSUMER_KEY, CONSUMER_SECRET)
@@ -43,12 +43,12 @@ def TwitterSearch(twitterApi, query, approxCount = 3000, **kw):
         print 'A total of ' + str(len(statuses)) + ' have been downloaded'
     return statuses
 
-# Sample usage
+dir=('C:\\Users\\ecoker\\Documents\\Projects\\Twitter\\Python-NLTK-and-Twitter\\')
 
 twitter_api = oauth_login()
 
-q = "ChicagoBears"
-statuses = TwitterSearch(twitter_api, q, approxCount = 5000)
+q = "Uber"
+statuses = TwitterSearch(twitter_api, q, approxCount = 2000)
         
 # # Show one sample search status by slicing the list...
 # print json.dumps(statuses[0], indent=1)
@@ -88,6 +88,9 @@ retweet_ct = [ status['retweet_count']
               for status in statuses ]
 source = [status['source']
             for status in statuses ]
+place = [status['place']
+            for status in statuses ]
+
 data = {'status_id' : status_id,
         'name' : name,
         'screen_name' : screen_name,
@@ -99,10 +102,10 @@ data = {'status_id' : status_id,
         'friend_count' : friend_count,
         'follower_count' : follower_count,
         'retweet_count' : retweet_ct,
-        'source' : source
+        'source' : source,
         'place' : place}
 df = pd.DataFrame(data)
-df.to_csv('chicagobears120714.csv', encoding = 'utf-8')
+df.to_csv(dir + 'uber' + str(time.strftime("%d_%m_%Y")) + '.csv', encoding = 'utf-8')
 
 
 
