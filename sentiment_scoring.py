@@ -1,4 +1,5 @@
 
+from __future__ import division
 import os  # operating system commands
 import nltk
 import re  # regular expressions
@@ -30,6 +31,11 @@ from nltk.tokenize import word_tokenize
 import nltk
 from nltk import *
 from nltk.stem.snowball import SnowballStemmer
+from sklearn import linear_model
+from sklearn.cross_validation import train_test_split
+from sklearn.linear_model import LassoLarsIC
+from sklearn.grid_search import GridSearchCV
+
 
 class MyObj(object):
     def __init__(self, num_loops):
@@ -59,18 +65,21 @@ def clean_tweet(tweet):
     # insert a space at the beginning and end of the tweet
     # tweet = ' ' + tweet + ' '
     tweet = re.sub(r'[^\x00-\x7F]+',"", tweet)
-    tweet = re.sub(r'"', '', tweet)
-    tweet = re.sub(",", '', tweet)
-    tweet = re.sub("http[^\\s]+",'', tweet)
-    tweet = re.sub(r"\[", '', tweet)
-    tweet = re.sub(r"\]", '', tweet)
-    tweet = re.sub(r"'rt", '', tweet)
-    tweet = re.sub(r"'", '', tweet)
-    tweet = re.sub("'", '', tweet)
-    tweet = re.sub("'", '', tweet)
-    # replace non-alphanumeric with space
-    temp_tweet = re.sub('[^a-zA-Z]', '  ', tweet)
-    temp_tweet = re.sub('\d', '  ', temp_tweet)
+    tweet = re.sub(r'"', ' ', tweet)
+    tweet = re.sub(",", ' ', tweet)
+    tweet = re.sub('http[^\\s]+',' ', tweet)
+    tweet = re.sub(r"\[", ' ', tweet)
+    tweet = re.sub(r"\]", ' ', tweet)
+    tweet = re.sub(r"'rt", ' ', tweet)
+    tweet = re.sub(r'\'', ' ', tweet)
+    tweet = re.sub(r'\'\,', ' ', tweet)
+    tweet = re.sub(r'\,\'', ' ', tweet)
+    tweet = re.sub('rt[^\\s]+', ' ', tweet)
+    temp_tweet = re.sub('[^a-zA-Z]', ' ', tweet)     # replace non-alphanumeric with space       
+                            
+   
+    # temp_tweet = re.sub('\d', '  ', temp_tweet)
+
 
     for i in range(len(codelist)):
         stopstring = ' ' + codelist[i] + '  '
@@ -155,10 +164,29 @@ def plotMostFrequentWords(words, plot_file_name, plot_title):
     
     return freq_sorted_list
 
-#Define directory and file with all tweets to be used
+#Define directory and file with all tweets to be used, read it in from source
 
 dir=('C:\\Users\\ecoker\\Documents\\Projects\\Twitter\\Python-NLTK-and-Twitter\\')
-twitter_df=pd.read_csv(dir + 'allbears.csv')
+twitter_df=pd.read_csv(dir + 'totalub.csv')
+twitter_df['surge_pricing'] = twitter_df.status_text.str.contains("surge pricing")
+twitter_df['surge_pricing'] = twitter_df['surge_pricing'].apply(lambda x: 1 if x == 'True' else 0)
+twitter_df['free_rides'] = twitter_df.status_text.str.contains("free rides")
+twitter_df['free_rides'] = twitter_df['free_rides'].apply(lambda x: 1 if x == 'True' else 0)
+twitter_df['promo'] = twitter_df.status_text.str.contains("promo|promotion|offer")
+twitter_df['promo'] = twitter_df['promo'].apply(lambda x: 1 if x == 'True' else 0)
+twitter_df['driver'] = twitter_df.status_text.str.contains("driver")
+twitter_df['driver'] = twitter_df['driver'].apply(lambda x: 1 if x == 'True' else 0)
+twitter_df['food'] = twitter_df.status_text.str.contains("food|dinner|meal")
+twitter_df['food'] = twitter_df['food'].apply(lambda x: 1 if x == 'True' else 0)
+twitter_df['controversy'] = twitter_df.status_text.str.contains("controvery|drama|conflict")
+twitter_df['controversy'] = twitter_df['controversy'].apply(lambda x: 1 if x == 'True' else 0)
+twitter_df['regulations'] = twitter_df.status_text.str.contains("regulation|regulations")
+twitter_df['regulations'] = twitter_df['regulations'].apply(lambda x: 1 if x == 'True' else 0)
+
+
+
+#apply the tweet cleaning function from above
+
 print 'dataframe: ', twitter_df.head()
 #clean up all tweets
 cleaned_tweets = list()
@@ -169,10 +197,7 @@ for line in review_tweets:
         cleaned_tweets.append(cleaned_tweet)
 
 
-# tokens=[word_tokenize(tweet) for tweet in cleaned_tweets]
-# print 'token len', len(tokens)
-# print tokens[:10]
-
+#apply tokenization, lemmatization, bigrams, and stemmer to look at different sequences of terms; this will determine the best features
 
 tokens = [word for sent in nltk.sent_tokenize(str(cleaned_tweets)) for word in nltk.word_tokenize(sent)]
 for token in sorted(set(tokens))[:30]:
@@ -192,10 +217,27 @@ stemmer = SnowballStemmer("english")
 stemmed_tokens = [stemmer.stem(t) for t in tokens]
 for token in sorted(set(stemmed_tokens))[:30]:
     print 'stems are: ' + token + ' [' + str(stemmed_tokens.count(token)) + ']'
-# tokenstr = ' '.join(tokens)
-# fdist=nltk.FreqDist(tokens)
-# word_features=fdist.keys()
-# print 'word_features: ', word_features
+
+# fix city and location datalemmatizer = nltk.WordNetLemmatizer()
+lemm_location = [lemmatizer.lemmatize(t) for t in str(twitter_df.location)]
+for token in sorted(set(lemm_location))[:30]:
+    print 'lemm are: ' + token + ', [' + str(lemm_location.count(token)) + ']'
+twitter_df.lem_location = lemm_location
+
+twitter_df.to_csv(dir + 'twitter_df.csv')
+
+# n=len(cleaned_tweets)
+
+# vectorizer = CountVectorizer(stop_words='english',
+#                              max_df=(n-1) / n,
+#                              tokenizer=StemTokenizer())
+
+# counts = vectorizer.fit_transform(text for p, text in cleaned_tweets)
+# stemct = {}
+# stemct = {'count': count, 'text': text}
+# stemctdf = pd.DataFrame(stemct, index=None, columns=['count', 'text'])
+# print stemctdf[:10]
+
 ###################
 # Use Python collection for counting frequency OF USERS
 twitter_df.screen_name = twitter_df.screen_name.str.replace(r'[^\x00-\x7F]+', '').astype('str') 
@@ -207,7 +249,7 @@ for index, row in twitter_df.iterrows():
 
 # Prepare the svg Plot
 
-barplot = pygal.HorizontalBar( style=pygal.style.SolidColorStyle )
+barplot = pygal.HorizontalBar(style=pygal.style.SolidColorStyle )
 
 topnum = 10
 for i in range(topnum):
@@ -279,7 +321,7 @@ sourcedf['NSOURCE']=sourcedf.SOURCE.apply(lambda x: translate(x))
 # Groupby the normalized field "NSOURCE"
 grouped = sourcedf.groupby(by=["NSOURCE"])
 
-# Create the chart (PieChart)
+# Create the chart (PieChart) of device source used by Twitter Users
 chart = pygal.Pie( style=pygal.style.SolidColorStyle )
 
 for i in grouped.groups.iteritems():
@@ -289,12 +331,14 @@ chart.config.title="Twitter Source for PyData-SV Users"
 chart.render_to_file('pie_chart_twitter_usersource.svg')
 
 
-positive_list=PlaintextCorpusReader(dir, 'unigrams-pos.txt')   
+############# This will read in the unigrams list of Positive and Negative lexicons
+positive_list = PlaintextCorpusReader(dir, 'unigrams-pos.txt')   
 
-negative_list=PlaintextCorpusReader(dir, 'unigrams-neg.txt')   
+negative_list = PlaintextCorpusReader(dir, 'unigrams-neg.txt')   
 
 positive_words = positive_list.words()
 negative_words = negative_list.words()
+
 
 # define bag-of-words dictionaries 
 def bag_of_words(words, value):
@@ -316,16 +360,17 @@ for word in range(len(tokens)):
     if tokens[word] in scoring_dictionary:
         score[word] = scoring_dictionary[tokens[word]]
 
+#define a corpus for later use
 corp=nltk.Text(tokens)
 
-# report the norm sentiment score for the words in the corpus
-scores=pd.DataFrame(score, index=None, columns=["score"])
-scores.to_csv(dir + 'scoringdict.csv')
-
-print('Corpus Average Sentiment Score:')
-print(round(sum(score) / (len(corp)), 3))
+print('Corpus Average Sentiment Score:')  
+print (sum(score)) / (len(tokens))
 print 'sum score', sum(score)
-print 'len corpus', len(corp)
+print 'len tokens', len(tokens)
+#-0.141606706372
+# sum score -32906
+# len tokens 232376
+
 # identify the most frequent positive words
 
 positive_words_in = nltk.FreqDist(w for w in positive_words)
@@ -357,9 +402,11 @@ for i,j in count.iteritems():
     if j > 1:
         pos.append([j, i])
 
+#prepare the positive terms found histogram
 posf= pd.DataFrame(pos, index=None, columns=['Count', 'Word'])
+posf['Word'] = posf['Word'].str.replace('[^\w\s]','')
+posf['Word'] = posf['Word'].str.replace('http', '')
 posf.sort(columns="Count", inplace=True, ascending=False)
-print posf.head()
 pos_chart = posf[:15].plot(kind='bar', x='Word', y='Count', title = 'Top Positive Words')
 pos_chart.set_ylabel('Word Count')
 pos_chart.set_xlabel('')
@@ -371,7 +418,11 @@ for i,j in count2.iteritems():
     if j > 1:
         neg.append([j, i])
 
+#prepare the negative terms found histogram
+
 negf= pd.DataFrame(neg, index=None, columns=['Count', 'Word'])
+negf['Word'] = negf['Word'].str.replace('[^\w\s]','')
+negf['Word'] = negf['Word'].str.replace('http', '')
 negf.sort(columns="Count", inplace=True, ascending=False)
 neg_chart = negf[:15].plot(kind='bar', x='Word', y='Count', title = 'Top Negative Words')
 neg_chart.set_ylabel('Word Count')
@@ -379,15 +430,13 @@ neg_chart.set_xlabel('')
 neg_chart.legend().set_visible(False)
 plt.savefig(dir + 'neg.png', bbox_inches = 'tight', edgecolor='b', orientation='landscape', papertype=None, format=None, transparent=True)
 
-
-
-# Plot the freq dist for the full corpus    
+# Plot the freq dist for the full corpus, when adjusted for lemmatization 
 # plot a bar chart for top words in terms of counts
-# total_words = aggregate_corpus.words()
+
 print('Get the top 15 words: ')
 full_plot_file_name = dir + 'full_review_word_count.png'
 plot_title = 'full_review_word_count'
-full_sort = plotMostFrequentWords(tokens, full_plot_file_name, plot_title)
+full_sort = plotMostFrequentWords(lemm_tokens, full_plot_file_name, plot_title)
 
 
 # Plot the freq dist for the bigrams   
@@ -397,6 +446,42 @@ print('Get the top 15 bigrams: ')
 neg_plot_file_name = dir + 'bigrams_count.png'
 plot_title = 'bigrams_count'
 negative_sort = plotMostFrequentWords(bigramslist, neg_plot_file_name, plot_title)
+
+
+twitter_df['']
+
+# Use the aggregate DataFrame to perform Linear Regression on Response of Retweet Counts
+train, test = train_test_split(twitter_df, test_size=.75, random_state=0)
+training = pd.DataFrame(train, columns = ['retweet_count', 'location', 'lem_location', 'time_zone', 'follower_count', 'friend_count', 'retweet_count', 'surge_pricing', 'free_rides', 'promo', 'driver', 'food', 'controversy', 'regulations'])
+testing = pd.DataFrame(test, columns = ['retweet_count', 'location', 'lem_location', 'time_zone', 'follower_count', 'friend_count', 'retweet_count', 'surge_pricing', 'free_rides', 'promo', 'driver', 'food', 'controversy', 'regulations'])
+y_training=training.retweet_count
+y_testing=testing.retweet_count
+cols=['surge_pricing', 'free_rides', 'promo', 'driver', 'food', 'controversy', 'regulations']  #'location', 'lem_location', 'time_zone', 'follower_count', 'friend_count', 
+labels=training['retweet_count'].values
+features=training[list(cols)].values
+
+
+model_aic=LassoLarsIC(criterion='aic')
+model_aic=fit(features, labels)
+model_aic.fit(features, labels)
+LassoLarsIC(copy_X=True, criterion='aic', eps=2.2204460492503131e-16, fit_intercept=True, max_iter=500, normalize=True, precompute='auto',verbose=False)
+def plot_ic_criterion(model, name, color):
+  alpha_ = model.alpha_
+  alphas_ = model.alphas_
+  criterion_ = model.criterion_
+plt.plot(-np.log10(alphas_), criterion_, '--', color=color, linewidth=3, label='%s criterion' % name)
+plt.axvline(-np.log10(alpha_), color=color, linewidth=3, label='alpha: %s estimate' % name)
+plt.xlabel('-log(alpha)')
+plt.ylabel('criterion')
+plt.figure()
+
+plot_ic_criterion(model_aic, 'AIC', 'b')
+
+regr = linear_model.LinearRegression()
+regr.fit(features, labels)
+LinearRegression(copy_X=True, fit_intercept=True, normalize=False)
+print('Coefficients: \n', regr.coef_)
+
 
 #Finally do the modeling using classification models and predict sentiment
 # sample=pd.read_csv(dir + 'sample_tweets_coded.csv')
