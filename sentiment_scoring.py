@@ -8,7 +8,7 @@ import numpy as np  # arrays and numerical processing
 import matplotlib.pyplot as plt  # 2D plotting
 import statsmodels.api as sm  # logistic regression
 import statsmodels.formula.api as smf  # R-like model specification
-import patsy  # translate model specification into design matrices
+from patsy import dmatrices  # translate model specification into design matrices
 from sklearn import svm  # support vector machines
 from sklearn.ensemble import RandomForestClassifier  # random forest
 from langdetect import detect
@@ -35,7 +35,10 @@ from sklearn import linear_model
 from sklearn.cross_validation import train_test_split
 from sklearn.linear_model import LassoLarsIC
 from sklearn.grid_search import GridSearchCV
-
+from sklearn_pandas import DataFrameMapper, cross_val_score
+from multiprocessing import Pool
+import multiprocessing as mp  # try to incorporate multiprocessing for slow lookups
+from numpy import log #F test
 
 class MyObj(object):
     def __init__(self, num_loops):
@@ -46,7 +49,7 @@ class MyObj(object):
             pdb.set_trace()
             print i
         return
-
+# This function will remove unwanted spaces, characters and format lines that will closely match our lexicon(s)
 def clean_tweet(tweet):
 
     more_stop_words = ['rt', 'cant','didnt','doesnt','dont','goes','isnt','hes','shes','thats','theres',\
@@ -100,6 +103,7 @@ def clean_tweet(tweet):
     temp_tweet = re.sub('\s+', ' ', temp_tweet)    
     return(temp_tweet)
 
+# This, and the next function are a generic function which can create a frequency histogram of terms/words in the corpus(es)
 def word_freq_dist(tweet_words):
     word_freq = dict()
 
@@ -167,24 +171,26 @@ def plotMostFrequentWords(words, plot_file_name, plot_title):
 #Define directory and file with all tweets to be used, read it in from source
 
 dir=('C:\\Users\\ecoker\\Documents\\Projects\\Twitter\\Python-NLTK-and-Twitter\\')
-twitter_df=pd.read_csv(dir + 'totalub.csv')
-twitter_df['surge_pricing'] = twitter_df.status_text.str.contains("surge pricing")
+twitter_df=pd.read_csv(dir + 'totalub.csv')  #This is the Twitter Feeds data pulled from the API !!!!
+# This is a method for finding key terms (qualitatively defined) in the tweets; it will later be used in a regression to predict Retweet Count
+text = twitter_df.status_text
+for line in text:
+    twitter_df['surge_pricing'] = text.str.contains("surge pricing|surge")
+    twitter_df['free_rides'] = text.str.contains("free rides|free ride")
+    twitter_df['promo'] = text.str.contains("promo|promotion|offer")
+    twitter_df['driver'] = text.str.contains("driver")
+    twitter_df['food'] = text.str.contains("food|dinner|meal|treat")
+    twitter_df['controversy'] = text.str.contains("controvery|drama|conflict")
+    twitter_df['regulations'] = text.str.contains("regulation|regulations|government")
+    
+
 twitter_df['surge_pricing'] = twitter_df['surge_pricing'].apply(lambda x: 1 if x == 'True' else 0)
-twitter_df['free_rides'] = twitter_df.status_text.str.contains("free rides")
 twitter_df['free_rides'] = twitter_df['free_rides'].apply(lambda x: 1 if x == 'True' else 0)
-twitter_df['promo'] = twitter_df.status_text.str.contains("promo|promotion|offer")
 twitter_df['promo'] = twitter_df['promo'].apply(lambda x: 1 if x == 'True' else 0)
-twitter_df['driver'] = twitter_df.status_text.str.contains("driver")
 twitter_df['driver'] = twitter_df['driver'].apply(lambda x: 1 if x == 'True' else 0)
-twitter_df['food'] = twitter_df.status_text.str.contains("food|dinner|meal")
 twitter_df['food'] = twitter_df['food'].apply(lambda x: 1 if x == 'True' else 0)
-twitter_df['controversy'] = twitter_df.status_text.str.contains("controvery|drama|conflict")
 twitter_df['controversy'] = twitter_df['controversy'].apply(lambda x: 1 if x == 'True' else 0)
-twitter_df['regulations'] = twitter_df.status_text.str.contains("regulation|regulations")
 twitter_df['regulations'] = twitter_df['regulations'].apply(lambda x: 1 if x == 'True' else 0)
-
-
-
 #apply the tweet cleaning function from above
 
 print 'dataframe: ', twitter_df.head()
@@ -196,6 +202,9 @@ for line in review_tweets:
         cleaned_tweet = clean_tweet(line)    
         cleaned_tweets.append(cleaned_tweet)
 
+
+location = str(twitter_df.location)
+locations = re.sub(r'[^\x00-\x7F]+',"", location)
 
 #apply tokenization, lemmatization, bigrams, and stemmer to look at different sequences of terms; this will determine the best features
 
@@ -219,24 +228,13 @@ for token in sorted(set(stemmed_tokens))[:30]:
     print 'stems are: ' + token + ' [' + str(stemmed_tokens.count(token)) + ']'
 
 # fix city and location datalemmatizer = nltk.WordNetLemmatizer()
-lemm_location = [lemmatizer.lemmatize(t) for t in str(twitter_df.location)]
+lemm_location = [lemmatizer.lemmatize(t) for t in locations]
 for token in sorted(set(lemm_location))[:30]:
     print 'lemm are: ' + token + ', [' + str(lemm_location.count(token)) + ']'
 twitter_df.lem_location = lemm_location
 
 twitter_df.to_csv(dir + 'twitter_df.csv')
 
-# n=len(cleaned_tweets)
-
-# vectorizer = CountVectorizer(stop_words='english',
-#                              max_df=(n-1) / n,
-#                              tokenizer=StemTokenizer())
-
-# counts = vectorizer.fit_transform(text for p, text in cleaned_tweets)
-# stemct = {}
-# stemct = {'count': count, 'text': text}
-# stemctdf = pd.DataFrame(stemct, index=None, columns=['count', 'text'])
-# print stemctdf[:10]
 
 ###################
 # Use Python collection for counting frequency OF USERS
@@ -367,7 +365,7 @@ print('Corpus Average Sentiment Score:')
 print (sum(score)) / (len(tokens))
 print 'sum score', sum(score)
 print 'len tokens', len(tokens)
-#-0.141606706372
+#-0.141606706372 is from 1 run of Twitter feeds
 # sum score -32906
 # len tokens 232376
 
@@ -448,39 +446,37 @@ plot_title = 'bigrams_count'
 negative_sort = plotMostFrequentWords(bigramslist, neg_plot_file_name, plot_title)
 
 
-twitter_df['']
-
 # Use the aggregate DataFrame to perform Linear Regression on Response of Retweet Counts
-train, test = train_test_split(twitter_df, test_size=.75, random_state=0)
-training = pd.DataFrame(train, columns = ['retweet_count', 'location', 'lem_location', 'time_zone', 'follower_count', 'friend_count', 'retweet_count', 'surge_pricing', 'free_rides', 'promo', 'driver', 'food', 'controversy', 'regulations'])
-testing = pd.DataFrame(test, columns = ['retweet_count', 'location', 'lem_location', 'time_zone', 'follower_count', 'friend_count', 'retweet_count', 'surge_pricing', 'free_rides', 'promo', 'driver', 'food', 'controversy', 'regulations'])
-y_training=training.retweet_count
-y_testing=testing.retweet_count
-cols=['surge_pricing', 'free_rides', 'promo', 'driver', 'food', 'controversy', 'regulations']  #'location', 'lem_location', 'time_zone', 'follower_count', 'friend_count', 
-labels=training['retweet_count'].values
-features=training[list(cols)].values
+train, test = train_test_split(twitter_df, test_size=.70, random_state=0)
+training = pd.DataFrame(train, columns = ['index', 'unnamed 0', 'follower_count', 'friend_count', 'geo', 'location', 'name' 'place', 'retweet_count', 'screen_name', 'source', 'status_id', 'status_text', 'time_zone', 'timestamp', 'surge_pricing', 'free_rides', 'promo', 'driver', 'food', 'controversy', 'regulations'])
+testing = pd.DataFrame(test, columns = ['index', 'unnamed: 0', 'follower_count', 'friend_count', 'geo', 'location', 'name' 'place', 'retweet_count', 'screen_name', 'source', 'status_id', 'status_text', 'time_zone', 'timestamp', 'surge_pricing', 'free_rides', 'promo', 'driver', 'food', 'controversy', 'regulations'])
+y, X = dmatrices('retweet_count ~ surge_pricing + free_rides + promo + driver + food + controversy + regulations', data=twitter_df, return_type='dataframe')
 
 
-model_aic=LassoLarsIC(criterion='aic')
-model_aic=fit(features, labels)
-model_aic.fit(features, labels)
-LassoLarsIC(copy_X=True, criterion='aic', eps=2.2204460492503131e-16, fit_intercept=True, max_iter=500, normalize=True, precompute='auto',verbose=False)
-def plot_ic_criterion(model, name, color):
-  alpha_ = model.alpha_
-  alphas_ = model.alphas_
-  criterion_ = model.criterion_
-plt.plot(-np.log10(alphas_), criterion_, '--', color=color, linewidth=3, label='%s criterion' % name)
-plt.axvline(-np.log10(alpha_), color=color, linewidth=3, label='alpha: %s estimate' % name)
-plt.xlabel('-log(alpha)')
-plt.ylabel('criterion')
-plt.figure()
+# Define the model from above Patsy-created variables, using Statsmodels
+mod=sm.OLS(y, X)
 
-plot_ic_criterion(model_aic, 'AIC', 'b')
+res = mod.fit()
+#Take a look at the Fit and Parameter stats in the OLS, including R Sqd, Linearity and Visual Plots
+print res.summary()
+print res.params
+print 'r sqd is : ', res.rsquared
+rainbow=sm.stats.linear_rainbow(res)
+print 'Rainbow Test for Linearity is ', rainbow
+ftest = mod.f_test
+print 'ftest', ftest
+plot = sm.graphics.plot_partregress('controvery', 'regulations')
+plt.savefig(dir + 'regressors.png', bbox_inches = 'tight', edgecolor='b', orientation='landscape', papertype=None, format=None, transparent=True)
+# regr = linear_model.LinearRegression()
+# regr.fit(features, labels)
+# LinearRegression(copy_X=True, fit_intercept=True, normalize=True)
+# print('Coefficients: \n', regr.coef_)
+# print("Residual sum of squares: %.2f"
+#       % np.mean((regr.predict(features) - labels) ** 2))
+# print('Variance score: %.2f' % regr.score(features, labels))
+# plt.scatter(features, labels,  color='black')
 
-regr = linear_model.LinearRegression()
-regr.fit(features, labels)
-LinearRegression(copy_X=True, fit_intercept=True, normalize=False)
-print('Coefficients: \n', regr.coef_)
+
 
 
 #Finally do the modeling using classification models and predict sentiment
