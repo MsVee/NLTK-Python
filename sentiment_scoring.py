@@ -17,7 +17,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from nltk.stem.lancaster import LancasterStemmer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
-from sklearn import cross_validation
+from sklearn.feature_extraction import DictVectorizer as DV
 from nltk.collocations import *
 import collections
 from nltk.util import ngrams
@@ -28,7 +28,6 @@ from prettytable import PrettyTable
 from prettytable import from_csv
 from BeautifulSoup import BeautifulSoup as bs
 from nltk.tokenize import word_tokenize
-import nltk
 from nltk import *
 from nltk.stem.snowball import SnowballStemmer
 from sklearn import linear_model
@@ -38,8 +37,11 @@ from sklearn.grid_search import GridSearchCV
 from sklearn_pandas import DataFrameMapper, cross_val_score
 from multiprocessing import Pool
 import multiprocessing as mp  # try to incorporate multiprocessing for slow lookups
-from numpy import log #F test
+from sklearn import pipeline
+from sklearn import cross_validation
 
+
+# class for debugging errors
 class MyObj(object):
     def __init__(self, num_loops):
         self.count = num_loops
@@ -171,26 +173,25 @@ def plotMostFrequentWords(words, plot_file_name, plot_title):
 #Define directory and file with all tweets to be used, read it in from source
 
 dir=('C:\\Users\\ecoker\\Documents\\Projects\\Twitter\\Python-NLTK-and-Twitter\\')
-twitter_df=pd.read_csv(dir + 'totalub.csv')  #This is the Twitter Feeds data pulled from the API !!!!
+twitter_df=pd.read_csv(dir + 'uber01_01_2015.csv')  #This is the Twitter Feeds data pulled from the API !!!!
 # This is a method for finding key terms (qualitatively defined) in the tweets; it will later be used in a regression to predict Retweet Count
-text = twitter_df.status_text
-for line in text:
-    twitter_df['surge_pricing'] = text.str.contains("surge pricing|surge")
-    twitter_df['free_rides'] = text.str.contains("free rides|free ride")
-    twitter_df['promo'] = text.str.contains("promo|promotion|offer")
-    twitter_df['driver'] = text.str.contains("driver")
-    twitter_df['food'] = text.str.contains("food|dinner|meal|treat")
-    twitter_df['controversy'] = text.str.contains("controvery|drama|conflict")
-    twitter_df['regulations'] = text.str.contains("regulation|regulations|government")
-    
 
-twitter_df['surge_pricing'] = twitter_df['surge_pricing'].apply(lambda x: 1 if x == 'True' else 0)
-twitter_df['free_rides'] = twitter_df['free_rides'].apply(lambda x: 1 if x == 'True' else 0)
-twitter_df['promo'] = twitter_df['promo'].apply(lambda x: 1 if x == 'True' else 0)
-twitter_df['driver'] = twitter_df['driver'].apply(lambda x: 1 if x == 'True' else 0)
-twitter_df['food'] = twitter_df['food'].apply(lambda x: 1 if x == 'True' else 0)
-twitter_df['controversy'] = twitter_df['controversy'].apply(lambda x: 1 if x == 'True' else 0)
-twitter_df['regulations'] = twitter_df['regulations'].apply(lambda x: 1 if x == 'True' else 0)
+twitter_df['surge_pricing'] = twitter_df.status_text.str.contains("surge pricing|surge")
+twitter_df['free_rides'] = twitter_df.status_text.str.contains("free rides|free ride")
+twitter_df['promo'] = twitter_df.status_text.str.contains("promo|promotion|offer")
+twitter_df['driver'] = twitter_df.status_text.str.contains("driver")
+twitter_df['food'] = twitter_df.status_text.str.contains("food|dinner|meal|treat")
+twitter_df['controversy'] = twitter_df.status_text.str.contains("controvery|drama|conflict")
+twitter_df['regulations'] = twitter_df.status_text.str.contains("regulation|regulations|government")
+
+
+twitter_df['surge_pricing'] = twitter_df['surge_pricing']*1
+twitter_df['free_rides'] = twitter_df['free_rides']*1
+twitter_df['promo'] = twitter_df['promo']*1
+twitter_df['driver'] = twitter_df['driver']*1
+twitter_df['food'] = twitter_df['food']*1
+twitter_df['controversy'] = twitter_df['controversy'] *1
+twitter_df['regulations'] = twitter_df['regulations']*1
 #apply the tweet cleaning function from above
 
 print 'dataframe: ', twitter_df.head()
@@ -202,7 +203,7 @@ for line in review_tweets:
         cleaned_tweet = clean_tweet(line)    
         cleaned_tweets.append(cleaned_tweet)
 
-
+# attempt to clean up location field, since users are free to put bad data in there
 location = str(twitter_df.location)
 locations = re.sub(r'[^\x00-\x7F]+',"", location)
 
@@ -227,16 +228,17 @@ stemmed_tokens = [stemmer.stem(t) for t in tokens]
 for token in sorted(set(stemmed_tokens))[:30]:
     print 'stems are: ' + token + ' [' + str(stemmed_tokens.count(token)) + ']'
 
-# fix city and location datalemmatizer = nltk.WordNetLemmatizer()
-lemm_location = [lemmatizer.lemmatize(t) for t in locations]
-for token in sorted(set(lemm_location))[:30]:
-    print 'lemm are: ' + token + ', [' + str(lemm_location.count(token)) + ']'
-twitter_df.lem_location = lemm_location
+# # fix city and location datalemmatizer = nltk.WordNetLemmatizer()
+# lemm_location = [lemmatizer.lemmatize(t) for t in locations]
+# for token in sorted(set(lemm_location))[:30]:
+#     print 'lemm are: ' + token + ', [' + str(lemm_location.count(token)) + ']'
 
-twitter_df.to_csv(dir + 'twitter_df.csv')
+# twitter_df.lem_location = lemm_location
 
 
-###################
+
+
+##################
 # Use Python collection for counting frequency OF USERS
 twitter_df.screen_name = twitter_df.screen_name.str.replace(r'[^\x00-\x7F]+', '').astype('str') 
 user_count = Counter()
@@ -315,7 +317,7 @@ def translate(txt):
 
 # Create a new column with normalized field
 sourcedf['NSOURCE']=sourcedf.SOURCE.apply(lambda x: translate(x))
-
+twitter_df['source']=sourcedf['NSOURCE']
 # Groupby the normalized field "NSOURCE"
 grouped = sourcedf.groupby(by=["NSOURCE"])
 
@@ -445,36 +447,8 @@ neg_plot_file_name = dir + 'bigrams_count.png'
 plot_title = 'bigrams_count'
 negative_sort = plotMostFrequentWords(bigramslist, neg_plot_file_name, plot_title)
 
+twitter_df.to_csv(dir + 'twitter_df.csv', index=False)
 
-# Use the aggregate DataFrame to perform Linear Regression on Response of Retweet Counts
-train, test = train_test_split(twitter_df, test_size=.70, random_state=0)
-training = pd.DataFrame(train, columns = ['index', 'unnamed 0', 'follower_count', 'friend_count', 'geo', 'location', 'name' 'place', 'retweet_count', 'screen_name', 'source', 'status_id', 'status_text', 'time_zone', 'timestamp', 'surge_pricing', 'free_rides', 'promo', 'driver', 'food', 'controversy', 'regulations'])
-testing = pd.DataFrame(test, columns = ['index', 'unnamed: 0', 'follower_count', 'friend_count', 'geo', 'location', 'name' 'place', 'retweet_count', 'screen_name', 'source', 'status_id', 'status_text', 'time_zone', 'timestamp', 'surge_pricing', 'free_rides', 'promo', 'driver', 'food', 'controversy', 'regulations'])
-y, X = dmatrices('retweet_count ~ surge_pricing + free_rides + promo + driver + food + controversy + regulations', data=twitter_df, return_type='dataframe')
-
-
-# Define the model from above Patsy-created variables, using Statsmodels
-mod=sm.OLS(y, X)
-
-res = mod.fit()
-#Take a look at the Fit and Parameter stats in the OLS, including R Sqd, Linearity and Visual Plots
-print res.summary()
-print res.params
-print 'r sqd is : ', res.rsquared
-rainbow=sm.stats.linear_rainbow(res)
-print 'Rainbow Test for Linearity is ', rainbow
-ftest = mod.f_test
-print 'ftest', ftest
-plot = sm.graphics.plot_partregress('controvery', 'regulations')
-plt.savefig(dir + 'regressors.png', bbox_inches = 'tight', edgecolor='b', orientation='landscape', papertype=None, format=None, transparent=True)
-# regr = linear_model.LinearRegression()
-# regr.fit(features, labels)
-# LinearRegression(copy_X=True, fit_intercept=True, normalize=True)
-# print('Coefficients: \n', regr.coef_)
-# print("Residual sum of squares: %.2f"
-#       % np.mean((regr.predict(features) - labels) ** 2))
-# print('Variance score: %.2f' % regr.score(features, labels))
-# plt.scatter(features, labels,  color='black')
 
 
 
@@ -529,4 +503,4 @@ plt.savefig(dir + 'regressors.png', bbox_inches = 'tight', edgecolor='b', orient
 
 # end_df['negative_probability'] = lr_clf.predict_proba(vector_data)[:,0]
 
-# end_df.to_csv(dir+'final_data120214.csv')   
+# end_df.to_csv(dir+'final_data120214.csv', index=False)   
