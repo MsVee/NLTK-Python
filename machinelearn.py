@@ -34,6 +34,7 @@ from sklearn.externals.six import StringIO
 from sklearn import tree
 from sklearn.cross_validation import cross_val_score
 from sklearn import metrics
+import pylab as p 
 
 # class for debugging errors
 class MyObj(object):
@@ -76,6 +77,18 @@ testing['source_l'] = le.fit(testing['source'])
 training['retweet_count_l'] = np.log(training['retweet_count'].replace(0, 1e-6))
 testing['retweet_count_l'] = np.log(testing['retweet_count'].replace(0, 1e-6))
 
+# taking a look at the distribution of retweet count
+print 'avg retweet', np.mean(training.retweet_count)  
+# training['retweet_count'].hist()
+# p.show()
+# training['retweet_count_l'].hist()
+# p.show()
+# testing['retweet_count'].hist()
+# p.show()
+# testing['retweet_count_l'].hist()
+# p.show()
+
+#statmodels OLS first
 y, X = dmatrices('retweet_count_l ~ surge_pricing + free_rides + promo + driver + food + controversy + regulations', data=training, return_type='dataframe')
 # Define the model from above Patsy-created variables, using Statsmodels
 print sm.OLS(y,X).fit().summary()
@@ -85,7 +98,7 @@ rainbow=sm.stats.linear_rainbow(sm.OLS(y,X).fit())
 print 'Rainbow Test for Linearity is ', rainbow
 y_hat, X_hat = dmatrices('retweet_count_l ~ surge_pricing + free_rides + promo + driver + food + controversy + regulations', data=testing, return_type='dataframe')
 y_pred = sm.OLS(y,X).fit().predict(X_hat)
-twitter_df['retweet_pred'] = pd.Series(y_pred)
+testing['retweet_pred_smols'] = pd.Series(y_pred)
 # plt.figure()
 # plt.plot(X,y,'o',X, y_pred, 'b-')
 
@@ -95,6 +108,8 @@ twitter_df['retweet_pred'] = pd.Series(y_pred)
 # plt.title('blue: true,   red: OLS')
 # plt.show()
 
+
+#make array adjustments for scikit learn
 numeric_cols = ['friend_count_l', 'follower_count_l']
 x_num_train = training[numeric_cols].as_matrix()
 x_num_test = testing[numeric_cols].as_matrix()
@@ -131,7 +146,9 @@ print('Variance score: %.2f' % regr.score(x_test, target_test))
 
 # The mean square error
 print 'mse ', np.mean((regr.predict(x_test)-target_test)**2)
-
+y_lr = regr.predict(x_test)
+print y_lr.shape
+testing['retweet_pred_scilr'] = pd.DataFrame(y_lr)
 
 #Decision Tree Regression
 print(__doc__)
@@ -141,10 +158,9 @@ clf.fit(x_train, target_train)
 y_fit_1 = clf.predict(x_test)
 print 'cross val score for DecisionTreeRegressor'
 print cross_val_score(clf, x_train, target_train, cv=10)
-# print "classification accuracy:", metrics.accuracy_score(target_test, y_fit_1)
+testing['retweet_pred_dtr'] = pd.DataFrame(y_fit_1)
 plt.figure()
-
-plt.plot(x_test, y_fit_1, c="r", label="max_depth=7", linewidth=2, alpha=.3)
+plt.plot(x_test, y_fit_1, c="r", linewidth=.5, alpha=.3)
 plt.xlabel("data")
 plt.ylabel("target")
 plt.title("Decision Tree Regression")
@@ -158,7 +174,7 @@ clf.fit(x_train, target_train)
 y_fit_200 = clf.predict(x_test)
 print 'cross val score for Random Forest'
 print cross_val_score(clf, x_train, target_train, cv=10)
-print "classification accuracy:", metrics.accuracy_score(target_test, y_fit_200)
+testing['retweet_pred_rf'] = pd.DataFrame(y_fit_200)
 plt.figure()
 plt.plot(x_train, target_train, '.k', alpha=0.3)
 plt.xlabel("data")
@@ -167,3 +183,20 @@ plt.title("Random Forest")
 plt.legend()
 plt.show()
 
+# use label binarization to enable use of different algorithms for the target, Retweet Count
+lb = preprocessing.LabelBinarizer()
+newtarget_train = lb.fit_transform(np.array(training['retweet_count_l']).astype(int))
+newtarget_test = lb.fit_transform(np.array(testing['retweet_count_l']).astype(int))
+twitter_df.newtarget_test = newtarget_test
+twitter_df.newtarget_train = newtarget_train
+clf = RF(n_estimators=7)
+t = clf.fit(x_train, newtarget_train)
+y_fit = t.predict(x_test)
+print y_fit.shape
+print "avg prec accuracy:", metrics.average_precision_score(newtarget_test, y_fit)
+print "rocauc:", metrics.roc_auc_score(newtarget_test, y_fit)
+# testing['retweet_pred_brf'] = pd.DataFrame(y_fit)
+
+
+twitter_df.to_csv(dir + 'twit_machine.csv')
+testing.to_csv(dir + 'twit_machine_test.csv')
