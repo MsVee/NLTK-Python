@@ -39,6 +39,7 @@ from multiprocessing import Pool
 import multiprocessing as mp  # try to incorporate multiprocessing for slow lookups
 from sklearn import pipeline
 from sklearn import cross_validation
+from datetime import datetime
 
 
 # class for debugging errors
@@ -169,9 +170,10 @@ def plotMostFrequentWords(words, plot_file_name, plot_title):
     plt.clf()
     
     return freq_sorted_list
+# Time the script; probably need to add Multiprocessing Module to speed up
+startTime = datetime.now()
 
 #Define directory and file with all tweets to be used, read it in from source
-
 dir=('C:\\Users\\ecoker\\Documents\\Projects\\Twitter\\Python-NLTK-and-Twitter\\')
 twitter_df=pd.read_csv(dir + 'uber01_01_2015.csv')  #This is the Twitter Feeds data pulled from the API !!!!
 # This is a method for finding key terms (qualitatively defined) in the tweets; it will later be used in a regression to predict Retweet Count
@@ -228,16 +230,7 @@ stemmed_tokens = [stemmer.stem(t) for t in tokens]
 for token in sorted(set(stemmed_tokens))[:30]:
     print 'stems are: ' + token + ' [' + str(stemmed_tokens.count(token)) + ']'
 
-# # fix city and location datalemmatizer = nltk.WordNetLemmatizer()
-# lemm_location = [lemmatizer.lemmatize(t) for t in locations]
-# for token in sorted(set(lemm_location))[:30]:
-#     print 'lemm are: ' + token + ', [' + str(lemm_location.count(token)) + ']'
-
-# twitter_df.lem_location = lemm_location
-
-
-
-
+# Create some descriptive EDA-style infographics; trying out SVG for style
 ##################
 # Use Python collection for counting frequency OF USERS
 twitter_df.screen_name = twitter_df.screen_name.str.replace(r'[^\x00-\x7F]+', '').astype('str') 
@@ -279,9 +272,6 @@ pt=from_csv(fp)
 #     print j,"\t", k
 
 
-#Get the source field from each tweet
-# Reduce the source and count
-# twitter_df.source = twitter_df.source.str.replace(r'[^\x00-\x7F]+', '')
 src=Counter(twitter_df.source)
 
 # Convert the "Counter" container to Pandas dataframe for easy manipulation
@@ -371,7 +361,7 @@ print 'len tokens', len(tokens)
 # sum score -32906
 # len tokens 232376
 
-# identify the most frequent positive words
+# identify the most frequent positive words (features to be used later for modeling)
 
 positive_words_in = nltk.FreqDist(w for w in positive_words)
 word_features_p = positive_words_in.keys()
@@ -402,7 +392,7 @@ for i,j in count.iteritems():
     if j > 1:
         pos.append([j, i])
 
-#prepare the positive terms found histogram
+# Prepare the positive terms found histogram
 posf= pd.DataFrame(pos, index=None, columns=['Count', 'Word'])
 posf['Word'] = posf['Word'].str.replace('[^\w\s]','')
 posf['Word'] = posf['Word'].str.replace('http', '')
@@ -418,7 +408,7 @@ for i,j in count2.iteritems():
     if j > 1:
         neg.append([j, i])
 
-#prepare the negative terms found histogram
+# Prepare the negative terms found histogram
 
 negf= pd.DataFrame(neg, index=None, columns=['Count', 'Word'])
 negf['Word'] = negf['Word'].str.replace('[^\w\s]','')
@@ -451,6 +441,8 @@ twitter_df.to_csv(dir + 'twitter_df.csv', index=False)
 
 
 
+# The next section is using a manually coded (0=not positive, 1=positive) sample to train the greater dataset of 
+# tweets. The best classifier based on precision/recall/confusion matrix for probaility. 
 
 
 #Finally do the modeling using classification models and predict sentiment
@@ -498,9 +490,11 @@ twitter_df.to_csv(dir + 'twitter_df.csv', index=False)
 # end_df['predicted_sentiment'] = lr_clf.predict(vector_data)
 
 
-
+# Now looking at the predicted sentiment probabilities
 # end_df['positive_probability'] = lr_clf.predict_proba(vector_data)[:,1]
 
 # end_df['negative_probability'] = lr_clf.predict_proba(vector_data)[:,0]
 
 # end_df.to_csv(dir+'final_data120214.csv', index=False)   
+
+print datetime.now() - startTime
