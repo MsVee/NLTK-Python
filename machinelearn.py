@@ -81,14 +81,14 @@ training['retweet_count_l'] = np.log(training['retweet_count'].replace(0, 1e-6))
 testing['retweet_count_l'] = np.log(testing['retweet_count'].replace(0, 1e-6))
 
 # taking a look at the distribution of retweet count, in order to discern a breaking point
-training['retweet_count'].hist(bins=30)
-p.show()
-training['retweet_count_l'].hist(bins=30)
-p.show()
-testing['retweet_count'].hist(bins=30)
-p.show()
-testing['retweet_count_l'].hist(bins=30)
-p.show()
+# training['retweet_count'].hist(bins=30)
+# p.show()
+# training['retweet_count_l'].hist(bins=30)
+# p.show()
+# testing['retweet_count'].hist(bins=30)
+# p.show()
+# testing['retweet_count_l'].hist(bins=30)
+# p.show()
 
 #statmodels OLS first
 y, X = dmatrices('retweet_count_l ~ surge_pricing + free_rides + promo + driver + food + controversy + regulations', data=training, return_type='dataframe')
@@ -178,18 +178,18 @@ plt.show()
 
 # use binarization to enable use of different algorithms for the target, Retweet Count level of '30' will be
 # the threshold from which we label 0 or 1 in the retweet_count labels
-lb1 = preprocessing.Binarizer(threshold=30)
-lb2 = preprocessing.Binarizer(threshold=30)
-newtarget_train = lb1.fit_transform(np.array(training['retweet_count_l']).astype(int))
-newtarget_test = lb2.fit_transform(np.array(testing['retweet_count_l']).astype(int))
+lb1 = preprocessing.Binarizer(threshold=(np.percentile((training['retweet_count']),95)))
+lb2 = preprocessing.Binarizer(threshold=(np.percentile((testing['retweet_count']),95)))
+newtarget_train = lb1.fit_transform(np.array(training['retweet_count']).astype(int))
+newtarget_test = lb2.fit_transform(np.array(testing['retweet_count']).astype(int))
 clf = RF(n_estimators=7)
 t = clf.fit(x_train, newtarget_train)
 y_fit = t.predict(x_test)
-print y_fit.shape
+# print y_fit.shape
 print "avg prec accuracy:", metrics.average_precision_score(newtarget_test, y_fit)
 print "rocauc:", metrics.roc_auc_score(newtarget_test, y_fit)
 testing['retweet_pred_brf'] = pd.DataFrame(y_fit)
-print "mean of retweet_count is:  ", training['retweet_count_l'].mean()
+print "mean of training retweet_count is:  ", training['retweet_count'].mean()
 
 twitter_df.to_csv(dir + 'twit_machine.csv')
 testing.to_csv(dir + 'twit_machine_test.csv')
