@@ -35,6 +35,7 @@ from sklearn import tree
 from sklearn.cross_validation import cross_val_score
 from sklearn import metrics
 import pylab as p 
+from datetime import datetime
 
 # class for debugging errors
 class MyObj(object):
@@ -46,6 +47,8 @@ class MyObj(object):
             pdb.set_trace()
             print i
         return
+# Time the script; probably need to add Multiprocessing Module to speed up
+startTime = datetime.now()
 
 dir=('C:\\Users\\ecoker\\Documents\\Projects\\Twitter\\Python-NLTK-and-Twitter\\')
 
@@ -77,16 +80,15 @@ testing['source_l'] = le.fit(testing['source'])
 training['retweet_count_l'] = np.log(training['retweet_count'].replace(0, 1e-6))
 testing['retweet_count_l'] = np.log(testing['retweet_count'].replace(0, 1e-6))
 
-# taking a look at the distribution of retweet count
-print 'avg retweet', np.mean(training.retweet_count)  
-# training['retweet_count'].hist()
-# p.show()
-# training['retweet_count_l'].hist()
-# p.show()
-# testing['retweet_count'].hist()
-# p.show()
-# testing['retweet_count_l'].hist()
-# p.show()
+# taking a look at the distribution of retweet count, in order to discern a breaking point
+training['retweet_count'].hist(bins=30)
+p.show()
+training['retweet_count_l'].hist(bins=30)
+p.show()
+testing['retweet_count'].hist(bins=30)
+p.show()
+testing['retweet_count_l'].hist(bins=30)
+p.show()
 
 #statmodels OLS first
 y, X = dmatrices('retweet_count_l ~ surge_pricing + free_rides + promo + driver + food + controversy + regulations', data=training, return_type='dataframe')
@@ -99,15 +101,6 @@ print 'Rainbow Test for Linearity is ', rainbow
 y_hat, X_hat = dmatrices('retweet_count_l ~ surge_pricing + free_rides + promo + driver + food + controversy + regulations', data=testing, return_type='dataframe')
 y_pred = sm.OLS(y,X).fit().predict(X_hat)
 testing['retweet_pred_smols'] = pd.Series(y_pred)
-# plt.figure()
-# plt.plot(X,y,'o',X, y_pred, 'b-')
-
-# plt.plot(X, sm.fittedvalues, 'r--.')
-# plt.plot(X, iv_u, 'r--')
-# plt.plot(X, iv_l, 'r--')
-# plt.title('blue: true,   red: OLS')
-# plt.show()
-
 
 #make array adjustments for scikit learn
 numeric_cols = ['friend_count_l', 'follower_count_l']
@@ -183,20 +176,22 @@ plt.title("Random Forest")
 plt.legend()
 plt.show()
 
-# use label binarization to enable use of different algorithms for the target, Retweet Count
-lb = preprocessing.LabelBinarizer()
-newtarget_train = lb.fit_transform(np.array(training['retweet_count_l']).astype(int))
-newtarget_test = lb.fit_transform(np.array(testing['retweet_count_l']).astype(int))
-twitter_df.newtarget_test = newtarget_test
-twitter_df.newtarget_train = newtarget_train
+# use binarization to enable use of different algorithms for the target, Retweet Count level of '30' will be
+# the threshold from which we label 0 or 1 in the retweet_count labels
+lb1 = preprocessing.Binarizer(threshold=30)
+lb2 = preprocessing.Binarizer(threshold=30)
+newtarget_train = lb1.fit_transform(np.array(training['retweet_count_l']).astype(int))
+newtarget_test = lb2.fit_transform(np.array(testing['retweet_count_l']).astype(int))
 clf = RF(n_estimators=7)
 t = clf.fit(x_train, newtarget_train)
 y_fit = t.predict(x_test)
 print y_fit.shape
 print "avg prec accuracy:", metrics.average_precision_score(newtarget_test, y_fit)
 print "rocauc:", metrics.roc_auc_score(newtarget_test, y_fit)
-# testing['retweet_pred_brf'] = pd.DataFrame(y_fit)
-
+testing['retweet_pred_brf'] = pd.DataFrame(y_fit)
+print "mean of retweet_count is:  ", training['retweet_count_l'].mean()
 
 twitter_df.to_csv(dir + 'twit_machine.csv')
 testing.to_csv(dir + 'twit_machine_test.csv')
+
+print datetime.now() - startTime
