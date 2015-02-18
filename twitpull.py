@@ -47,8 +47,12 @@ dir=('C:\\Users\\ecoker\\Documents\\Projects\\Twitter\\Python-NLTK-and-Twitter\\
 
 twitter_api = oauth_login()
 
-q = "Uber"
-statuses = TwitterSearch(twitter_api, q, approxCount = 2000)
+q = "GogoInflight"
+r =  "GogoWifi"
+
+status = TwitterSearch(twitter_api, q, approxCount = 2000)
+status2 = TwitterSearch(twitter_api, q, approxCount = 2000)
+statuses= status + status2
         
 # # Show one sample search status by slicing the list...
 # print json.dumps(statuses[0], indent=1)
@@ -105,7 +109,7 @@ data = {'status_id' : status_id,
         'source' : source,
         'place' : place}
 df = pd.DataFrame(data)
-df.to_csv(dir + 'uber' + str(time.strftime("%d_%m_%Y")) + '.csv', encoding = 'utf-8')
+df.to_csv(dir + 'gogo' + str(time.strftime("%d_%m_%Y")) + '.csv', encoding = 'utf-8')
 
 
 
