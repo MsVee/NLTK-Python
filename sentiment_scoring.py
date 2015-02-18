@@ -36,10 +36,12 @@ from sklearn.linear_model import LassoLarsIC
 from sklearn.grid_search import GridSearchCV
 from sklearn_pandas import DataFrameMapper, cross_val_score
 from multiprocessing import Pool
-import multiprocessing as mp  # try to incorporate multiprocessing for slow lookups
+import multiprocessing # try to incorporate multiprocessing for slow lookups
 from sklearn import pipeline
 from sklearn import cross_validation
 from datetime import datetime
+import time
+import HTMLParser
 
 
 # class for debugging errors
@@ -70,29 +72,42 @@ def clean_tweet(tweet):
 
     # insert a space at the beginning and end of the tweet
     # tweet = ' ' + tweet + ' '
-    tweet = re.sub(r'[^\x00-\x7F]+',"", tweet)
-    tweet = re.sub(r'"', ' ', tweet)
-    tweet = re.sub(",", ' ', tweet)
-    tweet = re.sub('http[^\\s]+',' ', tweet)
-    tweet = re.sub(r"\[", ' ', tweet)
-    tweet = re.sub(r"\]", ' ', tweet)
-    tweet = re.sub(r"'rt", ' ', tweet)
-    tweet = re.sub(r'\'', ' ', tweet)
-    tweet = re.sub(r'\'\,', ' ', tweet)
-    tweet = re.sub(r'\,\'', ' ', tweet)
-    tweet = re.sub('rt[^\\s]+', ' ', tweet)
-    temp_tweet = re.sub('[^a-zA-Z]', ' ', tweet)     # replace non-alphanumeric with space       
-                            
-   
-    # temp_tweet = re.sub('\d', '  ', temp_tweet)
 
+    tweet = re.sub(r'[^\x00-\x7F]+',' ', tweet)
+    tweet = re.sub('http[^\\s]+',' ', tweet)
+    tweet = re.sub(r"\[", '', tweet)
+    tweet = re.sub(r"\]", '', tweet)
+    tweet = re.sub(r"'rt", '', tweet)
+    tweet = re.sub(r'\'', '', tweet)
+    tweet = re.sub(r'\'\,', '', tweet)
+    tweet = re.sub(r'\,\'', '', tweet)
+    tweet = re.sub('rt[^\\s]+', '', tweet)
+    tweet = re.sub(r"' ,", '', tweet)
+    tweet = re.sub(r"\' ,", '', tweet)
+    tweet = re.sub(r", ',',", '', tweet)
+    tweet = re.sub(r"\,", '', tweet)
+    tweet = re.sub(r"\, \"\'\"\,", '', tweet)
+    tweet = re.sub(r"\, \"\' \,\"\,", '', tweet)
+    tweet = re.sub(r"\, \"\'\ \,\"\,", '', tweet)
+    tweet = re.sub(r"\,\ \"\'\"\,", '', tweet)
+    tweet = re.sub(r"\,", '', tweet)
+    tweet = re.sub(r"\"", '', tweet)
+    tweet = re.sub(r"\'", '', tweet)
+    tweet = re.sub(r"\'\,", '', tweet)
+    tweet = re.sub(r'"', '', tweet)
+    tweet = re.sub(",", '', tweet)
+    
+    temp_tweet = re.sub('[^a-zA-Z]', ' ', tweet)     # replace non-alphanumeric with space                              
+    html_parser = HTMLParser.HTMLParser()
+    tweet = html_parser.unescape(tweet)
+    # temp_tweet = re.sub('\d', '  ', temp_tweet)
 
     for i in range(len(codelist)):
         stopstring = ' ' + codelist[i] + '  '
-        temp_tweet1 = re.sub(stopstring, '  ', temp_tweet) 
+        temp_tweet1 = re.sub(stopstring, '  ', temp_tweet)
        
     # convert uppercase to lowercase
-    temp_tweet = temp_tweet1.lower()    
+    temp_tweet = temp_tweet1.lower()   
 
     # replace single-character words with space
     temp_tweet = re.sub('\s.\s', ' ', temp_tweet)
@@ -103,7 +118,8 @@ def clean_tweet(tweet):
         temp_tweet = re.sub(stopstring, ' ', temp_tweet)
 
     # replace multiple blank characters with one blank character
-    temp_tweet = re.sub('\s+', ' ', temp_tweet)    
+    temp_tweet = re.sub('\s+', ' ', temp_tweet) 
+
     return(temp_tweet)
 
 # This, and the next function are a generic function which can create a frequency histogram of terms/words in the corpus(es)
@@ -171,46 +187,62 @@ def plotMostFrequentWords(words, plot_file_name, plot_title):
     
     return freq_sorted_list
 # Time the script; probably need to add Multiprocessing Module to speed up
-startTime = datetime.now()
+startTime = time.time()
 
 #Define directory and file with all tweets to be used, read it in from source
 dir=('C:\\Users\\ecoker\\Documents\\Projects\\Twitter\\Python-NLTK-and-Twitter\\')
-twitter_df=pd.read_csv(dir + 'uber01_01_2015.csv')  #This is the Twitter Feeds data pulled from the API !!!!
+twitter_df=pd.read_csv(dir + 'gogotest.csv')  #This is the Twitter Feeds data pulled from the API !!!!
 # This is a method for finding key terms (qualitatively defined) in the tweets; it will later be used in a regression to predict Retweet Count
 
-twitter_df['surge_pricing'] = twitter_df.status_text.str.contains("surge pricing|surge")
-twitter_df['free_rides'] = twitter_df.status_text.str.contains("free rides|free ride")
+twitter_df['pricing'] = twitter_df.status_text.str.contains("pricing|price|cost")
+twitter_df['free'] = twitter_df.status_text.str.contains("free")
 twitter_df['promo'] = twitter_df.status_text.str.contains("promo|promotion|offer")
-twitter_df['driver'] = twitter_df.status_text.str.contains("driver")
-twitter_df['food'] = twitter_df.status_text.str.contains("food|dinner|meal|treat")
-twitter_df['controversy'] = twitter_df.status_text.str.contains("controvery|drama|conflict")
-twitter_df['regulations'] = twitter_df.status_text.str.contains("regulation|regulations|government")
+twitter_df['service'] = twitter_df.status_text.str.contains("service")
+twitter_df['fast'] = twitter_df.status_text.str.contains("fast")
+twitter_df['slow'] = twitter_df.status_text.str.contains("slow")
+twitter_df['movie_game'] = twitter_df.status_text.str.contains("movie|game|played|playing")
+twitter_df['texting'] = twitter_df.status_text.str.contains("texting|messaging")
 
 
-twitter_df['surge_pricing'] = twitter_df['surge_pricing']*1
-twitter_df['free_rides'] = twitter_df['free_rides']*1
+twitter_df['pricing'] = twitter_df['pricing']*1
+twitter_df['free'] = twitter_df['free']*1
 twitter_df['promo'] = twitter_df['promo']*1
-twitter_df['driver'] = twitter_df['driver']*1
-twitter_df['food'] = twitter_df['food']*1
-twitter_df['controversy'] = twitter_df['controversy'] *1
-twitter_df['regulations'] = twitter_df['regulations']*1
+twitter_df['service'] = twitter_df['service']*1
+twitter_df['fast'] = twitter_df['fast']*1
+twitter_df['slow'] = twitter_df['slow'] *1
+twitter_df['movie_game'] = twitter_df['movie_game']*1
+twitter_df['texting'] = twitter_df['texting']*1
 #apply the tweet cleaning function from above
 
 print 'dataframe: ', twitter_df.head()
 #clean up all tweets
-cleaned_tweets = list()
 review_tweets = twitter_df.status_text  
+cleaned_tweets = []
 
 for line in review_tweets:
-        cleaned_tweet = clean_tweet(line)    
-        cleaned_tweets.append(cleaned_tweet)
+    cleaned_tweet = clean_tweet(line)    
+    cleaned_tweets.append(cleaned_tweet)
+print 'cleaned_tweets created'
+# print("--- %s seconds ---" % time.time() - start_time)
+
+# if __name__ == '__main__':
+#     pool = Pool(processes=4)
+#     cleaned_tweets = pool.map(cleaner, review_tweets)
+#     cleaned_tweets = [ent for sublist in cleaned_tweets for ent in cleaned_tweets]
+#     pool.close()
+#     pool.join()
+# if __name__ == '__main__':
+#     p = Pool(processes=4)
+#     result = p.map(cleaner, [500, 500, 500, 500])
+#     cleaned_tweets = result.get()
+#     pool.close()
+#     pool.join()
 
 # attempt to clean up location field, since users are free to put bad data in there
 location = str(twitter_df.location)
 locations = re.sub(r'[^\x00-\x7F]+',"", location)
 
 #apply tokenization, lemmatization, bigrams, and stemmer to look at different sequences of terms; this will determine the best features
-
 tokens = [word for sent in nltk.sent_tokenize(str(cleaned_tweets)) for word in nltk.word_tokenize(sent)]
 for token in sorted(set(tokens))[:30]:
     print 'tokens are: ' + token + ' [' + str(tokens.count(token)) + ']'
@@ -220,16 +252,41 @@ lemm_tokens = [lemmatizer.lemmatize(t) for t in tokens]
 for token in sorted(set(lemm_tokens))[:30]:
     print 'lemm are: ' + token + ', [' + str(lemm_tokens.count(token)) + ']'
 
-bigrams = nltk.bigrams(tokens)
-bigramslist = [" ".join(pair) for pair in nltk.bigrams(tokens)]
-print 'bigrams: ', bigramslist[:10]
 
+bigrams = [" ".join(pair) for pair in nltk.bigrams(tokens)]
+# bigramslist = re.sub(',', '', str(bigrams))
+print 'bigrams: ', bigrams[:10]
 
 stemmer = SnowballStemmer("english")
 stemmed_tokens = [stemmer.stem(t) for t in tokens]
 for token in sorted(set(stemmed_tokens))[:30]:
     print 'stems are: ' + token + ' [' + str(stemmed_tokens.count(token)) + ']'
 
+# n = 3
+# trigrams = ngrams(str(tokens).split(), n)
+# for grams in sorted(set(trigrams))[:20]:
+#     print 'tri grams are:', grams
+
+trigrams = [" ".join(pair) for pair in nltk.trigrams(tokens)]
+# trigramslist = re.sub(',', '', str(trigrams))
+print 'trigrams: ', trigrams[:10]
+
+# if __name__ == "__main__":
+#     procs = 2   # Number of processes to create
+#     jobs = []
+#     for i in range(0, procs):
+#         out_list = []
+#         process = multiprocessing.Process(target=bigrams,
+#                                           args=(i, out_list))
+#         jobs.append(process)
+
+#     # Start the processes (i.e. calculate the random number lists)      
+#     for j in jobs:
+#         j.start()
+
+#     # Ensure all of the processes have finished
+#     for j in jobs:
+#         j.join()
 # Create some descriptive EDA-style infographics; trying out SVG for style
 ##################
 # Use Python collection for counting frequency OF USERS
@@ -254,18 +311,18 @@ barplot.config.legend_at_bottom=True
 barplot.render_to_file("Top_Tweeters.svg")
 
 ################ Tweets with RT count
-count = Counter([i for i in cleaned_tweets])
+# count = Counter([i for i in cleaned_tweets])
 
-frdf = []
-for i,j in count.iteritems():
-    if j > 10:
-        frdf.append([j, i])
+# frdf = []
+# for i,j in count.iteritems():
+#     if j > 10:
+#         frdf.append([j, i])
 
-df1 = pd.DataFrame(frdf, index=None, columns=["Count", "Tweet"])
-df1.sort(columns="Count", inplace=True, ascending=False)
-df1.to_csv(dir + 'TopTweets.csv')
-fp=open(dir + 'TopTweets.csv', "r")
-pt=from_csv(fp)
+# df1 = pd.DataFrame(frdf, index=None, columns=["Count", "Tweet"])
+# df1.sort(columns="Count", inplace=True, ascending=False)
+# df1.to_csv(dir + 'TopTweets.csv')
+# fp=open(dir + 'TopTweets.csv', "r")
+# pt=from_csv(fp)
 # fp.close()
 # print "top tweets are: ", pt
 # for i,j,k in df1.itertuples():
@@ -369,17 +426,18 @@ negative_words_in = nltk.FreqDist(w for w in negative_words)
 word_features_n = negative_words_in.keys()
 
 def count_positive(token):    
+    positive_w_in = []
     positive_w_in = [w for w in token if w in word_features_p]
     return positive_w_in
 
-def count_negative(token):    
+def count_negative(token):  
+    negative_w_in = [] 
     negative_w_in = [w for w in token if w in word_features_n]
     return negative_w_in
 
-positive_w_in = []
-negative_w_in = []
 positive_w_in = count_positive(tokens)
 negative_w_in = count_negative(tokens)
+
 print 'negative_w_in'
 print type(negative_w_in)
 print negative_w_in[:15]
@@ -435,7 +493,7 @@ full_sort = plotMostFrequentWords(lemm_tokens, full_plot_file_name, plot_title)
 print('Get the top 15 bigrams: ')
 neg_plot_file_name = dir + 'bigrams_count.png'
 plot_title = 'bigrams_count'
-negative_sort = plotMostFrequentWords(bigramslist, neg_plot_file_name, plot_title)
+negative_sort = plotMostFrequentWords(bigrams, neg_plot_file_name, plot_title)
 
 twitter_df.to_csv(dir + 'twitter_df.csv', index=False)
 
@@ -497,4 +555,4 @@ twitter_df.to_csv(dir + 'twitter_df.csv', index=False)
 
 # end_df.to_csv(dir+'final_data120214.csv', index=False)   
 
-print datetime.now() - startTime
+print time.time() - startTime
