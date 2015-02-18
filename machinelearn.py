@@ -36,6 +36,7 @@ from sklearn.cross_validation import cross_val_score
 from sklearn import metrics
 import pylab as p 
 from datetime import datetime
+from multiprocessing import Pool
 
 # class for debugging errors
 class MyObj(object):
@@ -124,7 +125,6 @@ target_test = np.array(testing['retweet_count_l'])
 
 
 print "training regression..."
-
 regr = linear_model.LinearRegression(normalize=True)
 # Train the model using the training sets
 regr.fit(x_train, target_train)
@@ -158,7 +158,8 @@ plt.xlabel("data")
 plt.ylabel("target")
 plt.title("Decision Tree Regression")
 plt.legend()
-plt.show()
+# plt.show()
+
 
 #Random Forest
 clf = RandomForestRegressor(n_estimators=200, max_depth=5, 
@@ -174,7 +175,7 @@ plt.xlabel("data")
 plt.ylabel("target")
 plt.title("Random Forest")
 plt.legend()
-plt.show()
+# plt.show()
 
 # use binarization to enable use of different algorithms for the target, Retweet Count level of '30' will be
 # the threshold from which we label 0 or 1 in the retweet_count labels
